@@ -1,0 +1,62 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local Players = game:GetService("Players")
+
+local spawnEvent = ReplicatedStorage:WaitForChild("SpawnCar")
+local carsFolder = ServerStorage:WaitForChild("Cars")
+
+-- Admin check (group-based). Replace with your groupId + minimum rank.
+local GROUP_ID = 12345678
+local MIN_RANK = 200
+
+local function isAdmin(player: Player): boolean
+	local ok, rank = pcall(function()
+		return player:GetRankInGroup(GROUP_ID)
+	end)
+	return ok and rank >= MIN_RANK
+end
+
+local function findCarModelByName(name: string): Model?
+	name = string.lower((name or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+	if name == "" then return nil end
+
+	for _, m in ipairs(carsFolder:GetChildren()) do
+		if m:IsA("Model") and string.lower(m.Name) == name then
+			return m
+		end
+	end
+	return nil
+end
+
+local function getSpawnCFrame(player: Player): CFrame?
+	local char = player.Character
+	if not char then return nil end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return nil end
+	return hrp.CFrame * CFrame.new(0, 0, -20)
+end
+
+spawnEvent.OnServerEvent:Connect(function(player, carName)
+	if not isAdmin(player) then
+		warn(("Blocked SpawnCar from non-admin %s"):format(player.Name))
+		return
+	end
+
+	local template = findCarModelByName(tostring(carName))
+	if not template then
+		warn(("Car not found: %s"):format(tostring(carName)))
+		return
+	end
+
+	local spawnCf = getSpawnCFrame(player)
+	if not spawnCf then return end
+
+	local car = template:Clone()
+	if not car.PrimaryPart then
+		warn(("Car model %s missing PrimaryPart"):format(template.Name))
+		return
+	end)  
+
+	car:PivotTo(spawnCf)
+	car.Parent = workspace
+end)
