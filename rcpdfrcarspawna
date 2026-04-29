@@ -1,93 +1,28 @@
-local Players = game:GetService("Players")
+-- ServerScriptService: SpawnCarScript
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage")
+local CarsFolder = ReplicatedStorage:WaitForChild("Cars")
 
-local getCarsFn = ReplicatedStorage:FindFirstChild("GetAdminCars") or Instance.new("RemoteFunction")
-getCarsFn.Name = "GetAdminCars"
-getCarsFn.Parent = ReplicatedStorage
+local RemoteEvent = Instance.new("RemoteEvent")
+RemoteEvent.Name = "SpawnCarEvent"
+RemoteEvent.Parent = ReplicatedStorage
 
-local spawnEvent = ReplicatedStorage:FindFirstChild("SpawnAdminCar") or Instance.new("RemoteEvent")
-spawnEvent.Name = "SpawnAdminCar"
-spawnEvent.Parent = ReplicatedStorage
+RemoteEvent.OnServerEvent:Connect(function(player, carName)
+    local carModel = CarsFolder:FindFirstChild(carName)
+    if not carModel then
+        warn("Car not found: " .. carName)
+        return
+    end
 
-local function getCarsFolder()
-	return ServerStorage:FindFirstChild("Admin Cars") or ServerStorage:FindFirstChild("Cars")
-end
+    local carClone = carModel:Clone()
+    carClone.Parent = workspace
 
--- OWNER: replace this with your real admin check
--- Option A: UserId whitelist
-local ADMIN_USER_IDS = {
-	-- 123456789,
-}
-
-local function isAdmin(player: Player): boolean
-	for _, id in ipairs(ADMIN_USER_IDS) do
-		if player.UserId == id then
-			return true
-		end
-	end
-	return false
-end
-
-local function listCars()
-	local folder = getCarsFolder()
-	if not folder then
-		return {}
-	end
-
-	local names = {}
-	for _, child in ipairs(folder:GetChildren()) do
-		if child:IsA("Model") then
-			table.insert(names, child.Name)
-		end
-	end
-	table.sort(names, function(a, b) return string.lower(a) < string.lower(b) end)
-	return names
-end
-
-getCarsFn.OnServerInvoke = function(player: Player)
-	if not isAdmin(player) then
-		return {}
-	end
-	return listCars()
-end
-
-local function findCarByName(name: string): Model?
-	local folder = getCarsFolder()
-	if not folder then return nil end
-
-	name = string.lower((name or ""):gsub("^%s+", ""):gsub("%s+$", ""))
-	for _, m in ipairs(folder:GetChildren()) do
-		if m:IsA("Model") and string.lower(m.Name) == name then
-			return m
-		end
-	end
-	return nil
-end
-
-local function getSpawnCFrame(player: Player): CFrame?
-	local char = player.Character
-	if not char then return nil end
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if not hrp then return nil end
-	return hrp.CFrame * CFrame.new(0, 0, -25)
-end
-
-spawnEvent.OnServerEvent:Connect(function(player: Player, carName)
-	if not isAdmin(player) then return end
-
-	local template = findCarByName(tostring(carName))
-	if not template then return end
-
-	local spawnCf = getSpawnCFrame(player)
-	if not spawnCf then return end
-
-	local car = template:Clone()
-	if not car.PrimaryPart then
-		warn(("Admin car %s missing PrimaryPart"):format(template.Name))
-		return
-	end
-
-	car:PivotTo(spawnCf)
-	car.Parent = workspace
+    -- Spawn in front of the player
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        carClone:SetPrimaryPartCFrame(
+            hrp.CFrame * CFrame.new(0, 0, -10)
+        )
+    end
 end)
